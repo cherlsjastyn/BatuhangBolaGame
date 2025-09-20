@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BATUHANG BOLA</title>
+  <!-- Adding Google Fonts for the font styling -->
+  <link href="https://fonts.googleapis.com/css2?family=Rock+Salt&family=Pacifico&family=Raleway:wght@300;500&display=swap" rel="stylesheet">
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      font-family: 'Raleway', sans-serif;
+      background: #f7b36d;
+    }
+
+    canvas {
+      display: block;
+      background: url('grass-background.jpg') no-repeat center center;
+      background-size: cover;
+    }
+
+    .scoreboard, .game-over, .instructions {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      text-align: center;
+      font-weight: bold;
+      color: white;
+      text-shadow: 1px 1px 4px #000;
+    }
+
+    .scoreboard {
+      top: 20px;
+      font-size: 24px;
+    }
+
+    .game-over {
+      top: 50%;
+      font-size: 36px;
+      display: none;
+    }
+
+    .instructions {
+      bottom: 20px;
+      font-size: 14px;
+      max-width: 700px;
+      line-height: 1.3;
+    }
+
+    .menu {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: rgb(152, 209, 77);
+      font-size: 36px;
+      font-weight: bold;
+      background-image: url('back.jpg'); /* Background GIF for the menu */
+      background-size: cover;
+      background-position: center;
+      padding: 50px;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+      z-index: 15;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    .menu h1 {
+      margin-bottom: 20px;
+      font-family: 'Pacifico', cursive;  /* Custom font for title */
+      font-size: 80px;
+      color: #ddda42;
+      text-shadow: 4px 4px 10px rgba(0, 0, 0, 0.7); /* Added text shadow for better visibility */
+    }
+
+    .menu button {
+      background-color: #4682b4;
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      font-size: 20px;
+      margin: 10px;
+      cursor: pointer;
+      transition: background-color 0.3s, background-image 0.3s, color 0.3s;
+      border-radius: 5px;
+      background-size: cover;
+      background-position: center;
+      position: relative;
+      font-family: 'Raleway', sans-serif;
+      text-shadow: 1px 1px 4px #000; /* Added text shadow to buttons */
+    }
+
+    .menu button#attackerBtn {
+      background-color: #007bff; /* Blue color for Attacker button */
+    }
+
+    .menu button#dodgerBtn {
+      background-color: #28a745; /* Green color for Dodger button */
+    }
+
+    .menu button:hover {
+      color: #fff;  /* White text when hovered */
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+    }
+
+    .menu button#attackerBtn:hover {
+      background-color: #0056b3; /* Darker blue on hover */
+    }
+
+    .menu button#dodgerBtn:hover {
+      background-color: #218838; /* Darker green on hover */
+    }
+
+    /* Loading Screen */
+    #loadingScreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: rgba(0, 0, 0, 0.8);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      color: white;
+      font-size: 24px;
+      z-index: 20;
+    }
+
+    #loadingScreen img {
+      width: 100%;  /* Make image take up the full width of the screen */
+      height: 100%; /* Make image take up the full height of the screen */
+      object-fit: cover; /* Ensure the image covers the entire area without distorting */
+    }
+
+    .loading-tips {
+      font-size: 18px;
+      color: #fff;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<!-- Menu Section -->
+<div id="menu" class="menu">
+  <h1>BATUHANG BOLA</h1>
+  <button id="attackerBtn">Choose as Attacker</button>
+  <button id="dodgerBtn">Choose as Dodger</button>
+</div>
+
+<!-- Loading Screen -->
+<div id="loadingScreen">
+  <div>
+    <img src="attackers.jpg" alt="Loading..."> <!-- Placeholder Image for Loading -->
+    <div>Loading... Please wait.</div>
+    <div class="loading-tips">Tip: Dodge the balls to stay alive!</div>
+  </div>
+</div>
+
+<div class="scoreboard" id="scoreboard">Dodgers Remaining: 3</div>
+<div class="game-over" id="gameOver">Game Over! All Dodgers Were Hit!</div>
+<div class="instructions">
+  Controls:<br>
+  <strong>Dodger 1:</strong> W (up), A (left), S (down), D (right)<br>
+  <strong>Dodger 2:</strong> Arrow Keys<br>
+  <strong>Dodger 3:</strong> I (up), J (left), K (down), L (right)<br><br>
+  Attackers:<br>
+  Top Attacker: A (left), D (right), Space (shoot)<br>
+  Bottom Attacker: J (left), L (right), Enter (shoot)
+</div>
+
+<script>
+  const canvas = document.getElementById("gameCanvas");
+  const ctx = canvas.getContext("2d");
+
+  let width = window.innerWidth;
+  let height = window.innerHeight;
+  canvas.width = width;
+  canvas.height = height;
+
+  let playerRadius, ballRadius, ballSpeed;
+  const dodgerCount = 3;
+  let isAttacker = false;
+
+  // Attackers fixed vertical positions
+  let topAttacker, bottomAttacker;
+  let redDodgers = [];
+  let balls = [];
+  let gameOver = false;
+
+  // Movement states per dodger
+  const dodgerMovement = [
+    { up: false, down: false, left: false, right: false }, // Dodger 1 (WASD)
+    { up: false, down: false, left: false, right: false }, // Dodger 2 (Arrows)
+    { up: false, down: false, left: false, right: false }  // Dodger 3 (IJKL)
+  ];
+
+  // Movement states for attackers (horizontal only)
+  const attackerMovement = {
+    topLeft: false,
+    topRight: false,
+    bottomLeft: false,
+    bottomRight: false,
+  };
+
+  // Key mappings to dodger movements
+  const keyMap = {
+    "KeyW": { dodger: 0, dir: "up", state: true },
+    "KeyA": { dodger: 0, dir: "left", state: true },
+    "KeyS": { dodger: 0, dir: "down", state: true },
+    "KeyD": { dodger: 0, dir: "right", state: true },
+    "ArrowUp": { dodger: 1, dir: "up", state: true },
+    "ArrowLeft": { dodger: 1, dir: "left", state: true },
+    "ArrowDown": { dodger: 1, dir: "down", state: true },
+    "ArrowRight": { dodger: 1, dir: "right", state: true },
+    "KeyI": { dodger: 2, dir: "up", state: true },
+    "KeyJ": { dodger: 2, dir: "left", state: true },
+    "KeyK": { dodger: 2, dir: "down", state: true },
+    "KeyL": { dodger: 2, dir: "right", state: true },
+  };
+
+  // Keys that are attacker horizontal movement keys
+  const attackerKeys = ["KeyA", "KeyD", "KeyJ", "KeyL"];
+
+  // Menu buttons for choosing roles
+  const attackerBtn = document.getElementById('attackerBtn');
+  const dodgerBtn = document.getElementById('dodgerBtn');
+  const menu = document.getElementById('menu');
+  const loadingScreen = document.getElementById('loadingScreen');
+
+  attackerBtn.addEventListener('click', () => {
+    showLoadingScreen();
+    isAttacker = true;
+    setTimeout(startGame, 3000); // Simulating loading time of 3 seconds
+  });
+
+  dodgerBtn.addEventListener('click', () => {
+    showLoadingScreen();
+    isAttacker = false;
+    setTimeout(startGame, 3000); // Simulating loading time of 3 seconds
+  });
+
+  function showLoadingScreen() {
+    loadingScreen.style.display = "flex"; // Display the loading screen
+  }
+
+  function hideLoadingScreen() {
+    loadingScreen.style.display = "none"; // Hide the loading screen
+  }
+
+  function startGame() {
+    hideLoadingScreen();
+    menu.style.display = "none";
+    initializeGame();
+    gameLoop();
+  }
+
+  function initializeGame() {
+    playerRadius = Math.min(width, height) * 0.03;
+    ballRadius = playerRadius * 0.5;
+    ballSpeed = height * 0.006;
+
+    topAttacker = { x: width / 2, y: playerRadius * 2, alive: true };
+    bottomAttacker = { x: width / 2, y: height - playerRadius * 2, alive: true };
+
+    redDodgers = [];
+    for (let i = 0; i < dodgerCount; i++) {
+      redDodgers.push({
+        x: width * (0.4 + 0.15 * i),
+        y: height / 2,
+        alive: true,
+      });
+    }
+
+    balls = [];
+    gameOver = false;
+    document.getElementById("gameOver").style.display = "none";
+    updateScore();
+  }
+
+  function updateScore() {
+    const aliveCount = redDodgers.filter(p => p.alive).length;
+    document.getElementById("scoreboard").innerText = `Dodgers Remaining: ${aliveCount}`;
+    if (aliveCount === 0) {
+      gameOver = true;
+      document.getElementById("gameOver").style.display = "block";
+    }
+  }
+
+  // Draw 2D human figures instead of balls
+  function drawHuman(x, y) {
+    ctx.fillStyle = "#FF6347"; // Color for the human figure (e.g., red)
+
+    // Head (circle)
+    ctx.beginPath();
+    ctx.arc(x, y - 20, 15, 0, Math.PI * 2);  // Drawing a circle for the head
+    ctx.fill();
+
+    // Body (rectangle)
+    ctx.fillStyle = "#4682b4"; // Body color (e.g., blue)
+    ctx.fillRect(x - 5, y - 10, 10, 30);  // Drawing a rectangle for the body
+
+    // Legs (lines)
+    ctx.beginPath();
+    ctx.moveTo(x, y + 20);  // Start at the bottom of the body
+    ctx.lineTo(x - 10, y + 40); // Left leg
+    ctx.moveTo(x, y + 20);
+    ctx.lineTo(x + 10, y + 40); // Right leg
+    ctx.stroke();
+
+    // Arms (lines)
+    ctx.beginPath();
+    ctx.moveTo(x, y - 10);  // Start at the top of the body
+    ctx.lineTo(x - 15, y); // Left arm
+    ctx.moveTo(x, y - 10);
+    ctx.lineTo(x + 15, y); // Right arm
+    ctx.stroke();
+  }
+
+  // Continue with the game logic for drawing players, balls, etc...
+  function moveDodgers() {
+    const moveSpeed = width * 0.007;
+
+    redDodgers.forEach((p, idx) => {
+      if (!p.alive) return;
+
+      // Movement logic for dodgers based on user input
+      if (dodgerMovement[idx].left) p.x = Math.max(playerRadius, p.x - moveSpeed);
+      if (dodgerMovement[idx].right) p.x = Math.min(width - playerRadius, p.x + moveSpeed);
+      if (dodgerMovement[idx].up) p.y = Math.max(height * 0.4, p.y - moveSpeed);
+      if (dodgerMovement[idx].down) p.y = Math.min(height * 0.6, p.y + moveSpeed);
+    });
+  }
+
+  function moveAttackers() {
+    const moveSpeed = width * 0.01;
+
+    // Top attacker moves horizontally
+    if (attackerMovement.topLeft) {
+      topAttacker.x = Math.max(playerRadius, topAttacker.x - moveSpeed);
+    }
+    if (attackerMovement.topRight) {
+      topAttacker.x = Math.min(width - playerRadius, topAttacker.x + moveSpeed);
+    }
+
+    // Bottom attacker moves horizontally
+    if (attackerMovement.bottomLeft) {
+      bottomAttacker.x = Math.max(playerRadius, bottomAttacker.x - moveSpeed);
+    }
+    if (attackerMovement.bottomRight) {
+      bottomAttacker.x = Math.min(width - playerRadius, bottomAttacker.x + moveSpeed);
+    }
+  }
+
+  function drawCourtLines() {
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 3;
+
+    // Half-court line
+    ctx.beginPath();
+    ctx.moveTo(0, height / 2);
+    ctx.lineTo(width, height / 2);
+    ctx.stroke();
+
+    // Center circle
+    ctx.beginPath();
+    ctx.arc(width / 2, height / 2, height * 0.1, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Dodger allowed zone highlight
+    ctx.fillStyle = "rgba(255,255,255,0.1)";
+    ctx.fillRect(0, height * 0.4, width, height * 0.2);
+  }
+
+  function drawPlayers() {
+    // Draw the attackers as human figures
+    drawHuman(topAttacker.x, topAttacker.y);
+    drawHuman(bottomAttacker.x, bottomAttacker.y);
+
+    // Draw the dodgers as human figures
+    redDodgers.forEach(p => {
+      if (p.alive) drawHuman(p.x, p.y);
+    });
+  }
+
+  function moveBalls() {
+    balls.forEach((ball, idx) => {
+      ball.y += ballSpeed * ball.direction;
+
+      // Remove balls that leave canvas vertically
+      if (ball.y < -ballRadius || ball.y > height + ballRadius) {
+        balls.splice(idx, 1);
+      }
+    });
+  }
+
+  function drawBalls() {
+    ctx.fillStyle = "#fdd835";
+    balls.forEach(ball => {
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, ballRadius, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
+  function checkCollisions() {
+    balls.forEach((ball, ballIndex) => {
+      redDodgers.forEach((dodger, dodgerIndex) => {
+        if (!dodger.alive) return;
+
+        const dx = ball.x - dodger.x;
+        const dy = ball.y - dodger.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < playerRadius + ballRadius) {
+          dodger.alive = false;
+          balls.splice(ballIndex, 1); // Remove the ball on hit
+          updateScore(); // Update the score after a collision
+        }
+      });
+    });
+  }
+
+  // Main game loop
+  function gameLoop() {
+    if (gameOver) return;
+
+    ctx.clearRect(0, 0, width, height);
+
+    drawCourtLines();
+    moveDodgers();
+    moveAttackers();
+    moveBalls();
+    checkCollisions();
+    drawPlayers();
+    drawBalls();
+
+    requestAnimationFrame(gameLoop); // Continuously call gameLoop
+  }
+
+  // Initialize the game when resizing the window
+  window.addEventListener("resize", () => {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+    initializeGame();
+  });
+
+</script>
+</body>
+</html>
